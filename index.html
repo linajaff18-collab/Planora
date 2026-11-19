@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#287C91">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<title>Planora - Mon agenda</title>
+<style>
+*{box-sizing:border-box}
+body{font-family:Arial,sans-serif;margin:0;background:#F5FAFF;color:#34495E}
+header{background:white;padding:25px;text-align:center;border-bottom:1px solid #E3EDF5}
+header h1{color:#287C91;font-size:38px;margin:0}
+header p{color:#718096}
+main{max-width:950px;margin:35px auto;padding:15px}
+.welcome{text-align:center;padding:25px 10px}
+.welcome h2{color:#287C91;font-size:30px}
+.agenda{background:white;padding:25px;border-radius:18px;box-shadow:0 5px 20px rgba(40,124,145,.08);margin-top:30px}
+.agenda h2{text-align:center;color:#287C91}
+.calendar-nav{display:flex;justify-content:space-between;align-items:center;margin:25px 0;gap:10px}
+.calendar-nav h3{color:#287C91;text-transform:capitalize}
+button{cursor:pointer;border:0;border-radius:9px;padding:12px 16px;background:#2FA7A0;color:white;font-size:15px}
+button:hover{background:#287C91}
+.calendar-weekdays,.calendar-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:7px}
+.calendar-weekdays{text-align:center;font-weight:bold;color:#287C91;margin-bottom:12px}
+.calendar-grid{margin-bottom:25px}
+.day-button{min-height:65px;border-radius:10px;background:#F3F8FC;color:#34495E;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:5px;border:2px solid transparent;padding:5px}
+.day-button:hover{background:#E2F4F3}
+.day-button.selected{border-color:#287C91}
+.day-button.state-upcoming{background:#DCEEFF;color:#15558B}
+.day-button.state-soon{background:#FFE7C2;color:#925500}
+.day-button.state-completed{background:#DDF5E5;color:#247345}
+.day-button.state-blocked,.day-button.state-conflict{background:#FFDADA;color:#A52A2A}
+.day-button.state-canceled{background:#EEE;color:#777}
+.day-dot{font-size:10px}
+.legend{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;margin:20px 0 30px;font-size:14px}
+.legend span{padding:9px 12px;border-radius:8px;background:#F3F8FC}
+.form-box{background:#F5FAFF;padding:20px;border-radius:13px;margin-top:25px}
+label{display:block;margin-top:15px;font-weight:bold;color:#34495E}
+input,select,textarea{width:100%;padding:12px;margin-top:7px;border:1px solid #CBDCE8;border-radius:8px;font-size:16px;background:white;color:#34495E}
+textarea{min-height:150px;resize:vertical}
+.form-box button{margin-top:18px;width:100%}
+.block-button{background:#D45B5B}
+.block-button:hover{background:#A52A2A}
+#message,#emailResult{margin-top:15px;padding:12px;border-radius:8px;display:none;background:#E2F4F3;color:#226B68;line-height:1.5}
+#emailResult.visible{display:block}
+.proposal-card{padding:15px;margin:12px 0;border-radius:10px;background:#F3F8FC;border-left:5px solid #2FA7A0}
+.proposal-card.unavailable{border-left-color:#D9534F;background:#FFF1F1}
+.proposal-card.added{border-left-color:#36A568;background:#EDFAF1}
+.proposal-card input{margin:8px 0}
+.proposal-card button{margin-top:8px}
+.proposal-card button:disabled{background:#999;cursor:not-allowed}
+#emailResult.error{background:#FFE7E7;color:#922}
+#appointmentList{margin-top:25px}
+.appointment-card{padding:15px;margin:12px 0;border-radius:10px;background:#F3F8FC;border-left:5px solid #287C91}
+.appointment-card.state-soon{border-left-color:#E99A28}
+.appointment-card.state-completed{border-left-color:#36A568}
+.appointment-card.state-conflict,.appointment-card.state-blocked{border-left-color:#D9534F}
+.appointment-card.state-canceled{border-left-color:#999}
+.appointment-card p{margin:7px 0}
+.appointment-card button{margin:5px 5px 0 0}
+.delete-button{background:#D9534F}
+footer{text-align:center;background:#287C91;color:white;padding:25px;margin-top:40px}
+@media(max-width:500px){.agenda{padding:13px}.day-button{min-height:49px;font-size:13px}.calendar-weekdays{font-size:12px}.calendar-nav h3{font-size:16px}header h1{font-size:30px}}
+</style>
+</head>
+<body>
+<header><h1>Planora</h1><p>Organize your time, simplify your life.</p><button type="button" id="installPlanora" hidden style="margin-top:10px">⬇ Installer Planora</button><p id="installHelp" style="font-size:13px;margin:8px 0 0"></p></header>
+<main>
+<section class="welcome">
+<h2>Bienvenue sur Planora !</h2>
+<p>Organise tes rendez-vous facilement. Gère ton calendrier et tes rappels au même endroit.</p>
+</section>
+<section class="agenda">
+<h2>📅 Mon calendrier</h2>
+<p style="text-align:center">Choisis une date pour voir tes rendez-vous.</p>
+<div class="calendar-nav">
+<button type="button" id="prevMonth">❮</button>
+<h3 id="monthLabel"></h3>
+<button type="button" id="nextMonth">❯</button>
+</div>
+<div class="calendar-weekdays"><span>Lun</span><span>Mar</span><span>Mer</span><span>Jeu</span><span>Ven</span><span>Sam</span><span>Dim</span></div>
+<div id="calendarGrid" class="calendar-grid"></div>
+<h3>🎨 Les couleurs</h3>
+<div class="legend">
+<span>🔵 À venir</span><span>🟠 Bientôt</span><span>🟢 Terminé</span><span>🔴 Indisponible / conflit</span><span>⚪ Annulé</span>
+</div>
+<div class="form-box">
+<h3>➕ Ajouter un rendez-vous</h3>
+<form id="appointmentForm">
+<label for="appointmentName">Nom du rendez-vous :</label>
+<input type="text" id="appointmentName" placeholder="Exemple : Rendez-vous médical" required>
+<label for="appointmentDate">Date :</label>
+<input type="date" id="appointmentDate" required>
+<label for="appointmentTime">Heure :</label>
+<input type="time" id="appointmentTime" required>
+<label for="reminderTime">Me rappeler :</label>
+<select id="reminderTime">
+<option value="0">Pas de rappel</option><option value="10">10 minutes avant</option><option value="30">30 minutes avant</option><option value="60">1 heure avant</option>
+</select>
+<button type="submit">Ajouter mon rendez-vous</button>
+</form>
+<button type="button" id="blockDateButton" class="block-button">🔴 Rendre cette date indisponible</button>
+<div id="message" role="status" aria-live="polite"></div>
+</div>
+<h3 id="listTitle">Mes rendez-vous</h3>
+<div id="appointmentList"></div>
+</section>
+
+<section class="agenda">
+<h2>📩 Analyser un e-mail</h2>
+<p>Colle le texte de ton e-mail. Planora cherchera toutes les dates et heures qu'il trouve, puis vérifiera chacune dans ton calendrier.</p>
+<label for="emailText">Texte de l'e-mail :</label>
+<textarea id="emailText" placeholder="Bonjour, je vous propose un rendez-vous le 25 novembre 2026 à 14:30. Merci."></textarea>
+<button type="button" id="checkEmailButton">Analyser l'e-mail</button>
+<div id="emailResult" role="status" aria-live="polite"></div>
+<div id="emailProposals"></div>
+<p><small>Tu peux ajouter chaque proposition disponible à ton calendrier avec le bouton. Planora considère qu'un rendez-vous dure 1 heure. Il ne lit pas tes e-mails automatiquement : tu dois copier et coller leur contenu.</small></p>
+</section>
+</main>
+<footer>© 2026 Planora - Organize your time, simplify your life.</footer>
+
+<script>
+"use strict";
+
+const calendarGrid = document.getElementById("calendarGrid");
+const monthLabel = document.getElementById("monthLabel");
+const appointmentList = document.getElementById("appointmentList");
+const appointmentDate = document.getElementById("appointmentDate");
+const message = document.getElementById("message");
+
+function loadData(key, fallback) {
+    try {
+        const saved = localStorage.getItem(key);
+        return saved ? JSON.parse(saved) : fallback;
+    } catch (error) {
+        return fallback;
+    }
+}
+
+let appointments = loadData("planoraAppointments", []);
+let blockedDates = loadData("planoraBlockedDates", []);
+if (!Array.isArray(appointments)) appointments = [];
+if (!Array.isArray(blockedDates)) blockedDates = [];
+
+const today = new Date();
+let viewYear = today.getFullYear();
+let viewMonth = today.getMonth();
+let selectedDate = formatDate(today);
+appointmentDate.value = selectedDate;
+
+function saveData() {
+    localStorage.setItem("planoraAppointments", JSON.stringify(appointments));
+    localStorage.setItem("planoraBlockedDates", JSON.stringify(blockedDates));
+}
+function formatDate(date) {
+    return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`;
+}
+function parseAppointmentDate(appointment) {
+    const [year, month, day] = appointment.date.split("-").map(Number);
+    const [hours, minutes] = appointment.time.split(":").map(Number);
+    return new Date(year, month-1, day, hours, minutes);
+}
+function showMessage(text) {
+    message.textContent = text;
+    message.style.display = "block";
+}
+function escapeHTML(value) {
+    return String(value).replace(/[&<>"']/g, character => ({
+        "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
+    }[character]));
+}
+function appointmentStart(appointment) {
+    return parseAppointmentDate(appointment).getTime();
+}
+function hasConflict(appointment) {
+    const start = appointmentStart(appointment);
+    const end = start + 60*60*1000;
+    return appointments.some(other => {
+        if (other.id === appointment.id || other.canceled) return false;
+        const otherStart = appointmentStart(other);
+        const otherEnd = otherStart + 60*60*1000;
+        return start < otherEnd && end > otherStart;
+    });
+}
+function dateHasConflict(date) {
+    const active = appointments.filter(a => a.date === date && !a.canceled);
+    return active.some(a => hasConflict(a));
+}
+function getStatus(appointment) {
+    if (appointment.canceled) return "canceled";
+    if (blockedDates.includes(appointment.date)) return "blocked";
+    if (hasConflict(appointment)) return "conflict";
+    const difference = appointmentStart(appointment) - Date.now();
+    if (difference < 0) return "completed";
+    if (difference <= 24*60*60*1000) return "soon";
+    return "upcoming";
+}
+function statusLabel(status) {
+    const labels = {
+        upcoming:"🔵 À venir", soon:"🟠 Bientôt", completed:"🟢 Terminé",
+        blocked:"🔴 Date indisponible", conflict:"🔴 Conflit d'horaire", canceled:"⚪ Annulé"
+    };
+    return labels[status] || status;
+}
+function renderCalendar() {
+    monthLabel.textContent = new Intl.DateTimeFormat("fr-FR",{month:"long",year:"numeric"}).format(new Date(viewYear,viewMonth,1));
+    calendarGrid.innerHTML = "";
+    const firstDay = new Date(viewYear,viewMonth,1);
+    const totalDays = new Date(viewYear,viewMonth+1,0).getDate();
+    const startingDay = (firstDay.getDay()+6)%7;
+    for (let i=0;i<startingDay;i++) calendarGrid.appendChild(document.createElement("div"));
+    for (let day=1;day<=totalDays;day++) {
+        const date = `${viewYear}-${String(viewMonth+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
+        const dayAppointments = appointments.filter(a=>a.date===date&&!a.canceled);
+        let state = "";
+        if (blockedDates.includes(date)) state="blocked";
+        else if (dateHasConflict(date)) state="conflict";
+        else if (dayAppointments.some(a=>getStatus(a)==="soon")) state="soon";
+        else if (dayAppointments.some(a=>getStatus(a)==="upcoming")) state="upcoming";
+        else if (dayAppointments.some(a=>getStatus(a)==="completed")) state="completed";
+        else if (appointments.some(a=>a.date===date&&a.canceled)) state="canceled";
+        const button=document.createElement("button");
+        button.type="button";
+        button.className="day-button "+(state?"state-"+state:"")+(date===selectedDate?" selected":"");
+        button.dataset.date=date;
+        button.setAttribute("aria-label",date);
+        button.innerHTML=`<span>${day}</span><span class="day-dot">${dayAppointments.length?"●":""}</span>`;
+        calendarGrid.appendChild(button);
+    }
+}
+function renderAppointments() {
+    const selectedAppointments=appointments.filter(a=>a.date===selectedDate).sort((a,b)=>a.time.localeCompare(b.time));
+    const [year,month,day]=selectedDate.split("-").map(Number);
+    const readableDate=new Intl.DateTimeFormat("fr-FR",{dateStyle:"long"}).format(new Date(year,month-1,day));
+    document.getElementById("listTitle").textContent="Rendez-vous du "+readableDate;
+    appointmentList.innerHTML="";
+    if (!selectedAppointments.length) {
+        appointmentList.textContent="Aucun rendez-vous pour cette date.";
+        return;
+    }
+    selectedAppointments.forEach(appointment=>{
+        const status=getStatus(appointment);
+        const card=document.createElement("div");
+        card.className="appointment-card state-"+status;
+        card.innerHTML=`
+            <strong>${escapeHTML(appointment.name)}</strong>
+            <p>🕒 ${escapeHTML(appointment.time)}</p>
+            <p>${statusLabel(status)}</p>
+            ${appointment.reminderMinutes?`<p>🔔 Rappel : ${appointment.reminderMinutes} minutes avant</p>`:""}
+            <button type="button" data-action="cancel" data-id="${appointment.id}">${appointment.canceled?"Réactiver":"Annuler"}</button>
+            <button type="button" class="delete-button" data-action="delete" data-id="${appointment.id}">Supprimer</button>`;
+        appointmentList.appendChild(card);
+    });
+}
+function render() {
+    renderCalendar();
+    renderAppointments();
+    document.getElementById("blockDateButton").textContent=blockedDates.includes(selectedDate)?"✅ Rendre cette date disponible":"🔴 Rendre cette date indisponible";
+}
+
+document.getElementById("prevMonth").addEventListener("click",()=>{
+    viewMonth--;
+    if(viewMonth<0){viewMonth=11;viewYear--;}
+    render();
+});
+document.getElementById("nextMonth").addEventListener("click",()=>{
+    viewMonth++;
+    if(viewMonth>11){viewMonth=0;viewYear++;}
+    render();
+});
+calendarGrid.addEventListener("click",event=>{
+    const button=event.target.closest("[data-date]");
+    if(!button)return;
+    selectedDate=button.dataset.date;
+    appointmentDate.value=selectedDate;
+    render();
+});
+appointmentDate.addEventListener("change",()=>{
+    if(!appointmentDate.value)return;
+    selectedDate=appointmentDate.value;
+    const parts=selectedDate.split("-").map(Number);
+    viewYear=parts[0];viewMonth=parts[1]-1;
+    render();
+});
+document.getElementById("blockDateButton").addEventListener("click",()=>{
+    if(blockedDates.includes(selectedDate)){
+        blockedDates=blockedDates.filter(date=>date!==selectedDate);
+        showMessage("Cette date est maintenant disponible.");
+    } else {
+        blockedDates.push(selectedDate);
+        showMessage("Cette date est maintenant indisponible.");
+    }
+    saveData();render();
+});
+document.getElementById("appointmentForm").addEventListener("submit",async event=>{
+    event.preventDefault();
+    const name=document.getElementById("appointmentName").value.trim();
+    const date=appointmentDate.value;
+    const time=document.getElementById("appointmentTime").value;
+    const reminder=Number(document.getElementById("reminderTime").value);
+    if(!name||!date||!time){showMessage("Merci de remplir tous les champs.");return;}
+    if(blockedDates.includes(date)){showMessage("Cette date est indisponible. Choisis une autre date.");return;}
+    if(reminder>0&&"Notification"in window&&Notification.permission==="default"){
+        try{await Notification.requestPermission();}catch(error){showMessage("Les notifications ne sont pas disponibles dans ce navigateur.");}
+    }
+    const appointment={id:Date.now()+Math.random(),name,date,time,reminderMinutes:reminder,canceled:false,reminded:false};
+    appointments.push(appointment);
+    selectedDate=date;
+    saveData();
+    document.getElementById("appointmentForm").reset();
+    appointmentDate.value=selectedDate;
+    showMessage(hasConflict(appointment)?"Rendez-vous ajouté, mais attention : il chevauche un autre rendez-vous. La date apparaîtra en rouge.":"Ton rendez-vous a bien été ajouté !");
+    render();
+});
+appointmentList.addEventListener("click",event=>{
+    const button=event.target.closest("button[data-action]");
+    if(!button)return;
+    const id=Number(button.dataset.id);
+    const appointment=appointments.find(a=>a.id===id);
+    if(!appointment)return;
+    if(button.dataset.action==="cancel"){
+        appointment.canceled=!appointment.canceled;
+        if(!appointment.canceled)appointment.reminded=false;
+        showMessage(appointment.canceled?"Rendez-vous annulé.":"Rendez-vous réactivé.");
+    }
+    if(button.dataset.action==="delete"){
+        appointments=appointments.filter(a=>a.id!==id);
+        showMessage("Rendez-vous supprimé.");
+    }
+    saveData();render();
+});
+
+
+function parseEmailAppointments(text) {
+    const normalized = text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    const dates = [];
+    const monthNumbers = {
+        janvier:1, fevrier:2, mars:3, avril:4, mai:5, juin:6,
+        juillet:7, aout:8, septembre:9, octobre:10, novembre:11, decembre:12
+    };
+
+    function addDate(match, year, month, day, index) {
+        year = Number(year); month = Number(month); day = Number(day);
+        const check = new Date(year, month - 1, day);
+        if (year >= 2000 && month >= 1 && month <= 12 && day >= 1 &&
+            check.getFullYear() === year && check.getMonth() === month - 1 &&
+            check.getDate() === day) {
+            dates.push({
+                date: `${year}-${String(month).padStart(2,"0")}-${String(day).padStart(2,"0")}`,
+                index,
+                end: index + match.length
+            });
+        }
+    }
+
+    let match;
+    const isoRegex = /\b(20\d{2})-(\d{1,2})-(\d{1,2})\b/g;
+    while ((match = isoRegex.exec(normalized)) !== null) {
+        addDate(match[0], match[1], match[2], match[3], match.index);
+    }
+    const numericRegex = /\b(\d{1,2})[/.](\d{1,2})[/.](20\d{2})\b/g;
+    while ((match = numericRegex.exec(normalized)) !== null) {
+        addDate(match[0], match[3], match[2], match[1], match.index);
+    }
+    const monthRegex = /\b(\d{1,2})\s+(janvier|fevrier|mars|avril|mai|juin|juillet|aout|septembre|octobre|novembre|decembre)\s+(20\d{2})\b/g;
+    while ((match = monthRegex.exec(normalized)) !== null) {
+        addDate(match[0], match[3], monthNumbers[match[2]], match[1], match.index);
+    }
+
+    dates.sort((a,b) => a.index - b.index);
+    const uniqueDates = dates.filter((item, index) =>
+        index === 0 || item.date !== dates[index-1].date || item.index !== dates[index-1].index
+    );
+
+    const times = [];
+    const timeRegex = /\b([01]?\d|2[0-3])\s*(?:h\s*([0-5]\d)?|:\s*([0-5]\d))\b/gi;
+    while ((match = timeRegex.exec(normalized)) !== null) {
+        const hours = String(Number(match[1])).padStart(2,"0");
+        const minutes = String(Number(match[2] || match[3] || "0")).padStart(2,"0");
+        times.push({time:`${hours}:${minutes}`, index:match.index, end:match.index+match[0].length});
+    }
+
+    if (!uniqueDates.length) {
+        return { error:"Je n'ai pas trouvé de date complète. Essaie par exemple : 25/11/2026 ou 25 novembre 2026." };
+    }
+    if (!times.length) {
+        return { error:"J'ai trouvé une date, mais pas d'heure. Essaie par exemple : 14:30 ou 14h30." };
+    }
+
+    const usedTimes = new Set();
+    const proposals = [];
+    uniqueDates.forEach(dateItem => {
+        let bestIndex = -1;
+        let bestDistance = Infinity;
+        times.forEach((timeItem, index) => {
+            if (usedTimes.has(index)) return;
+            const distance = timeItem.index >= dateItem.end
+                ? timeItem.index - dateItem.end
+                : dateItem.index - timeItem.end + 30;
+            // Priorité à une heure située juste après la date, puis à une heure proche avant.
+            const acceptable = timeItem.index >= dateItem.end
+                ? distance <= 180
+                : distance >= 0 && distance <= 60;
+            if (acceptable && distance < bestDistance) {
+                bestDistance = distance;
+                bestIndex = index;
+            }
+        });
+        if (bestIndex !== -1) {
+            usedTimes.add(bestIndex);
+            proposals.push({date:dateItem.date, time:times[bestIndex].time, added:false});
+        }
+    });
+
+    if (!proposals.length) {
+        return { error:"J'ai trouvé la date, mais je n'arrive pas à associer une heure à cette date. Mets la date et l'heure proches l'une de l'autre dans l'e-mail." };
+    }
+    return { proposals };
+}
+
+function getProposalConflict(proposal) {
+    if (blockedDates.includes(proposal.date)) return { type:"blocked" };
+    const proposedStart = new Date(`${proposal.date}T${proposal.time}`).getTime();
+    const proposedEnd = proposedStart + 60*60*1000;
+    return appointments.find(appointment => {
+        if (appointment.canceled) return false;
+        const existingStart = appointmentStart(appointment);
+        const existingEnd = existingStart + 60*60*1000;
+        return proposedStart < existingEnd && proposedEnd > existingStart;
+    }) || null;
+}
+
+let emailProposals = [];
+
+function renderEmailProposals() {
+    const container = document.getElementById("emailProposals");
+    container.innerHTML = "";
+    emailProposals.forEach((proposal, index) => {
+        const conflict = getProposalConflict(proposal);
+        const card = document.createElement("div");
+        card.className = "proposal-card" +
+            (proposal.added ? " added" : conflict ? " unavailable" : "");
+        let status = proposal.added
+            ? "✅ Ce rendez-vous a été ajouté à ton calendrier."
+            : conflict
+                ? (conflict.type === "blocked"
+                    ? "🔴 INDISPONIBLE — Cette date est bloquée."
+                    : `🔴 INDISPONIBLE — Conflit avec « ${escapeHTML(conflict.name)} » à ${escapeHTML(conflict.time)}.`)
+                : "🟢 DISPONIBLE — Aucun conflit trouvé.";
+        card.innerHTML = `
+            <strong>Proposition ${index + 1}</strong>
+            <p>📅 ${escapeHTML(proposal.date)} à ${escapeHTML(proposal.time)}</p>
+            <p>${status}</p>
+            ${proposal.added ? "" : `
+                <label for="proposalName${index}">Nom du rendez-vous :</label>
+                <input id="proposalName${index}" type="text" value="Rendez-vous reçu par e-mail">
+                <button type="button" data-add-proposal="${index}" ${conflict ? "disabled" : ""}>
+                    Ajouter au calendrier
+                </button>`}`;
+        container.appendChild(card);
+    });
+}
+
+document.getElementById("checkEmailButton").addEventListener("click", () => {
+    const text = document.getElementById("emailText").value.trim();
+    const result = document.getElementById("emailResult");
+    result.className = "visible";
+    document.getElementById("emailProposals").innerHTML = "";
+    emailProposals = [];
+
+    if (!text) {
+        result.classList.add("error");
+        result.textContent = "Colle d'abord le texte de l'e-mail dans la zone.";
+        return;
+    }
+
+    const parsed = parseEmailAppointments(text);
+    if (parsed.error) {
+        result.classList.add("error");
+        result.textContent = parsed.error;
+        return;
+    }
+
+    emailProposals = parsed.proposals;
+    result.classList.remove("error");
+    result.textContent = `${emailProposals.length} proposition(s) de rendez-vous trouvée(s). Vérifie les résultats ci-dessous.`;
+    renderEmailProposals();
+});
+
+document.getElementById("emailProposals").addEventListener("click", event => {
+    const button = event.target.closest("button[data-add-proposal]");
+    if (!button) return;
+
+    const index = Number(button.dataset.addProposal);
+    const proposal = emailProposals[index];
+    if (!proposal || proposal.added) return;
+
+    // On vérifie une deuxième fois au moment de l'ajout.
+    const conflict = getProposalConflict(proposal);
+    if (conflict) {
+        renderEmailProposals();
+        return;
+    }
+
+    const nameInput = document.getElementById(`proposalName${index}`);
+    const name = nameInput ? nameInput.value.trim() : "";
+    if (!name) {
+        alert("Écris un nom pour ce rendez-vous.");
+        return;
+    }
+
+    appointments.push({
+        id: Date.now() + Math.random(),
+        name,
+        date: proposal.date,
+        time: proposal.time,
+        reminderMinutes: 0,
+        canceled: false,
+        reminded: false
+    });
+    proposal.added = true;
+    selectedDate = proposal.date;
+    appointmentDate.value = selectedDate;
+    const parts = selectedDate.split("-").map(Number);
+    viewYear = parts[0];
+    viewMonth = parts[1] - 1;
+    saveData();
+    render();
+    renderEmailProposals();
+    document.getElementById("emailResult").textContent =
+        "✅ Le rendez-vous a été ajouté à ton calendrier !";
+});
+
+function checkReminders(){
+    const now=Date.now();
+    let changed=false;
+    appointments.forEach(appointment=>{
+        if(appointment.canceled||appointment.reminded||!appointment.reminderMinutes)return;
+        const appointmentTime=appointmentStart(appointment);
+        const reminderTime=appointmentTime-appointment.reminderMinutes*60*1000;
+        if(now>=reminderTime&&now<appointmentTime){
+            const reminderText=appointment.name+" à "+appointment.time;
+            if("Notification"in window&&Notification.permission==="granted"){
+                new Notification("🔔 Rappel Planora",{body:reminderText});
+            } else {
+                showMessage("🔔 Rappel : "+reminderText);
+            }
+            appointment.reminded=true;changed=true;
+        }
+        if(now>=appointmentTime){appointment.reminded=true;changed=true;}
+    });
+    if(changed){saveData();render();}
+}
+render();
+checkReminders();
+setInterval(checkReminders,20000);
+
+// Enregistrement du mode application installable.
+if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+        navigator.serviceWorker.register("./sw.js").catch(error => {
+            console.log("Service worker non disponible :", error);
+        });
+    });
+}
+
+// Bouton d'installation (proposé par Chrome ou Edge lorsqu'il est disponible).
+let planoraInstallPrompt = null;
+const installButton = document.getElementById("installPlanora");
+const installHelp = document.getElementById("installHelp");
+window.addEventListener("beforeinstallprompt", event => {
+    event.preventDefault();
+    planoraInstallPrompt = event;
+    installButton.hidden = false;
+    installHelp.textContent = "Installe Planora sur ton ordinateur avec ce bouton.";
+});
+installButton.addEventListener("click", async () => {
+    if (!planoraInstallPrompt) {
+        installHelp.textContent = "Dans Chrome ou Edge, ouvre le menu du navigateur puis choisis « Installer Planora ».";
+        return;
+    }
+    planoraInstallPrompt.prompt();
+    await planoraInstallPrompt.userChoice;
+    planoraInstallPrompt = null;
+    installButton.hidden = true;
+});
+window.addEventListener("appinstalled", () => {
+    installButton.hidden = true;
+    installHelp.textContent = "Planora est installée sur ton ordinateur !";
+});
+</script>
+</body>
+</html>

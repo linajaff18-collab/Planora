@@ -1,0 +1,13 @@
+PLANORA – VERSION INSTALLABLE POUR WINDOWS
+
+1. Décompresse le dossier Planora-installable.
+2. Garde tous les fichiers ensemble dans le même dossier.
+3. Double-clique sur Demarrer-Planora.bat.
+4. Une fenêtre noire reste ouverte : c'est normal, ne la ferme pas pendant que tu utilises Planora.
+5. Le navigateur ouvre http://localhost:3000.
+6. Dans Chrome ou Edge, utilise le bouton « Installer Planora » si celui-ci apparaît.
+   Sinon, ouvre le menu du navigateur et cherche « Installer Planora » ou
+   « Applications > Installer ce site en tant qu'application ».
+
+Pour arrêter le serveur, ferme la fenêtre noire.
+Les rendez-vous restent enregistrés dans le navigateur sur cet ordinateur.
